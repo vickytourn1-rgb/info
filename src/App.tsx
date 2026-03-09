@@ -14,6 +14,7 @@ export default function App() {
   const [data, setData] = useState<Row[]>([]);
   const [current, setCurrent] = useState<Row | null>(null);
   const [doctorFilter, setDoctorFilter] = useState("All");
+  const [loading, setLoading] = useState(false);
 
   const parseTime = (time: string) => {
     if (!time) return 0;
@@ -35,6 +36,8 @@ export default function App() {
 
   const loadSchedule = async () => {
     try {
+      setLoading(true);
+
       const res = await fetch(SHEET_URL);
       const text = await res.text();
 
@@ -77,6 +80,8 @@ export default function App() {
       setCurrent(working || null);
     } catch (error) {
       console.error("Error loading schedule:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -99,6 +104,7 @@ export default function App() {
   return (
     <div style={{ padding: 40, fontFamily: "Arial, sans-serif" }}>
       <h1>USARAD Schedule</h1>
+      <p>Auto-updates every minute</p>
 
       {current && (
         <div
@@ -113,10 +119,8 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ marginRight: 10, fontWeight: "bold" }}>
-          Doctor Filter:
-        </label>
+      <div style={{ marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <label style={{ fontWeight: "bold" }}>Doctor Filter:</label>
         <select
           value={doctorFilter}
           onChange={(e) => setDoctorFilter(e.target.value)}
@@ -128,6 +132,13 @@ export default function App() {
             </option>
           ))}
         </select>
+
+        <button
+          onClick={loadSchedule}
+          style={{ padding: "8px 14px", borderRadius: 6, cursor: "pointer" }}
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       <table
@@ -157,3 +168,4 @@ export default function App() {
     </div>
   );
 }
+
