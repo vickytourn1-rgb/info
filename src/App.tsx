@@ -15,6 +15,7 @@ export default function App() {
   const [data, setData] = useState<Row[]>([]);
   const [doctorFilter, setDoctorFilter] = useState("All");
   const [current, setCurrent] = useState<Row | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const parseTime = (time: string) => {
     if (!time) return 0;
@@ -32,47 +33,52 @@ export default function App() {
   };
 
   const loadSchedule = async () => {
-    const res = await fetch(SHEET_URL);
-    const text = await res.text();
+    try {
+      setLoading(true);
+      const res = await fetch(SHEET_URL);
+      const text = await res.text();
 
-    const rows = text.trim().split("\n").map((r) => r.split(","));
+      const rows = text.trim().split("
+").map((r) => r.split(","));
+      const headers = rows[0].map((h) => h.trim().toLowerCase());
 
-    const headers = rows[0].map((h) => h.trim().toLowerCase());
+      const dowIndex = headers.findIndex(
+        (h) => h === "day of week" || h === "weekday"
+      );
+      const dayIndex = headers.findIndex((h) => h === "day" || h === "date");
+      const startIndex = headers.findIndex((h) => h === "start");
+      const endIndex = headers.findIndex((h) => h === "end");
+      const personIndex = headers.findIndex(
+        (h) => h === "person" || h === "doctor"
+      );
 
-    const dowIndex = headers.findIndex(
-      (h) => h === "day of week" || h === "weekday"
-    );
-    const dayIndex = headers.findIndex((h) => h === "day" || h === "date");
-    const startIndex = headers.findIndex((h) => h === "start");
-    const endIndex = headers.findIndex((h) => h === "end");
-    const personIndex = headers.findIndex(
-      (h) => h === "person" || h === "doctor"
-    );
+      const parsed: Row[] = rows.slice(1).map((r) => ({
+        DayOfWeek: r[dowIndex] || "",
+        Day: r[dayIndex] || "",
+        Start: r[startIndex] || "",
+        End: r[endIndex] || "",
+        Person: r[personIndex] || "",
+      }));
 
-    const parsed: Row[] = rows.slice(1).map((r) => ({
-      DayOfWeek: r[dowIndex] || "",
-      Day: r[dayIndex] || "",
-      Start: r[startIndex] || "",
-      End: r[endIndex] || "",
-      Person: r[personIndex] || "",
-    }));
+      setData(parsed);
 
-    setData(parsed);
+      const now = new Date();
+      const today = now.toLocaleDateString("en-US", { weekday: "long" });
+      const minutesNow = now.getHours() * 60 + now.getMinutes();
 
-    const now = new Date();
-    const today = now.toLocaleDateString("en-US", { weekday: "long" });
-    const minutesNow = now.getHours() * 60 + now.getMinutes();
+      const working = parsed.find((r) => {
+        if (r.DayOfWeek.toLowerCase() !== today.toLowerCase()) return false;
+        const start = parseTime(r.Start);
+        const end = parseTime(r.End);
+        return minutesNow >= start && minutesNow <= end;
+      });
 
-    const working = parsed.find((r) => {
-      if (r.DayOfWeek.toLowerCase() !== today.toLowerCase()) return false;
-
-      const start = parseTime(r.Start);
-      const end = parseTime(r.End);
-
-      return minutesNow >= start && minutesNow <= end;
-    });
-
-    setCurrent(working || null);
+      setCurrent(working || null);
+    } catch (error) {
+      console.error("Error loading schedule:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -92,64 +98,127 @@ export default function App() {
       : data.filter((r) => r.Person === doctorFilter);
 
   return (
-    <div style={{ padding: 40, fontFamily: "Arial" }}>
-      <h1>USARAD Schedule</h1>
-      <p>Auto updates every minute</p>
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: "32px 40px",
+        fontFamily: "Arial, sans-serif",
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "1600px", margin: "0 auto" }}>
+        <h1 style={{ textAlign: "center", fontSize: "clamp(42px, 6vw, 82px)", marginBottom: 12 }}>
+          USARAD Schedule
+        </h1>
+        <p style={{ textAlign: "center", fontSize: 18, marginBottom: 20 }}>
+          Auto updates every minute
+        </p>
 
-      {current && (
+        {current && (
+          <div
+            style={{
+              padding: 18,
+              background: "#e8f4ff",
+              borderRadius: 12,
+              marginBottom: 24,
+              textAlign: "center",
+              fontSize: 20,
+            }}
+          >
+            <strong>Working Now:</strong> {current.Person}
+          </div>
+        )}
+
         <div
           style={{
-            padding: 15,
-            background: "#e8f4ff",
-            borderRadius: 8,
-            marginBottom: 20,
+            marginBottom: 24,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
           }}
         >
-          <strong>Working Now:</strong> {current.Person}
+          <label style={{ fontSize: 18, fontWeight: 700 }}>Doctor:</label>
+          <select
+            value={doctorFilter}
+            onChange={(e) => setDoctorFilter(e.target.value)}
+            style={{
+              padding: "10px 14px",
+              fontSize: 18,
+              borderRadius: 8,
+              minWidth: 220,
+            }}
+          >
+            {doctors.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+
+          <button
+            onClick={loadSchedule}
+            style={{
+              padding: "10px 18px",
+              fontSize: 18,
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
-      )}
 
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ marginRight: 10 }}>Doctor:</label>
-        <select
-          value={doctorFilter}
-          onChange={(e) => setDoctorFilter(e.target.value)}
-        >
-          {doctors.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table
+            border={1}
+            cellPadding={14}
+            style={{
+              borderCollapse: "collapse",
+              width: "100%",
+              tableLayout: "auto",
+              background: "white",
+            }}
+          >
+            <thead>
+              <tr style={{ background: "#f4f6fb" }}>
+                <th style={{ fontSize: 18 }}>Day of Week</th>
+                <th style={{ fontSize: 18 }}>Date</th>
+                <th style={{ fontSize: 18 }}>Start</th>
+                <th style={{ fontSize: 18 }}>End</th>
+                <th style={{ fontSize: 18 }}>Doctor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => {
+                const isCurrent =
+                  current &&
+                  r.DayOfWeek === current.DayOfWeek &&
+                  r.Day === current.Day &&
+                  r.Start === current.Start &&
+                  r.End === current.End &&
+                  r.Person === current.Person;
 
-        <button
-          onClick={loadSchedule}
-          style={{ marginLeft: 15, padding: "6px 12px" }}
-        >
-          Refresh
-        </button>
+                return (
+                  <tr
+                    key={i}
+                    style={{
+                      background: isCurrent ? "#dcfce7" : "white",
+                    }}
+                  >
+                    <td style={{ fontSize: 18 }}>{r.DayOfWeek}</td>
+                    <td style={{ fontSize: 18 }}>{r.Day}</td>
+                    <td style={{ fontSize: 18 }}>{r.Start}</td>
+                    <td style={{ fontSize: 18 }}>{r.End}</td>
+                    <td style={{ fontSize: 18 }}>{r.Person}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <table border={1} cellPadding={8} style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th>Day of Week</th>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Doctor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((r, i) => (
-            <tr key={i}>
-              <td>{r.DayOfWeek}</td>
-              <td>{r.Day}</td>
-              <td>{r.Start}</td>
-              <td>{r.End}</td>
-              <td>{r.Person}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
+
