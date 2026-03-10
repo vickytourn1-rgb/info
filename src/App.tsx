@@ -107,6 +107,13 @@ export default function App() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "1600px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 10 }}>
+          <img
+            src="/logo.png"
+            alt="USARAD Logo"
+            style={{ height: 80, marginBottom: 10 }}
+          />
+        </div>
         <h1
           style={{
             textAlign: "center",
@@ -117,7 +124,7 @@ export default function App() {
           USARAD Schedule
         </h1>
         <p style={{ textAlign: "center", fontSize: 18, marginBottom: 20 }}>
-          Auto updates every minute
+          
         </p>
 
         {current && (
