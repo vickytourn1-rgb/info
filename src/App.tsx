@@ -4,6 +4,7 @@ const SHEET_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0MXqkG6kzxZRwsMQtWgSjvvFVGp1rhx7yDu8YxvauoXyarbiIEBCzcM69JcEEiJEoGxTtyXQ8RvRf/pub?gid=0&single=true&output=csv";
 
 type Row = {
+  DayOfWeek: string;
   Day: string;
   Start: string;
   End: string;
@@ -43,12 +44,16 @@ export default function App() {
 
       const rows = text
         .trim()
-        .split("\n")
+        .split("
+")
         .map((r) => r.split(","));
 
       const headers = rows[0].map((h) => h.trim().toLowerCase());
 
-      const dayIndex = headers.findIndex((h) => h === "day");
+      const dayOfWeekIndex = headers.findIndex(
+        (h) => h === "day of week" || h === "dayofweek" || h === "weekday"
+      );
+      const dayIndex = headers.findIndex((h) => h === "day" || h === "date");
       const startIndex = headers.findIndex((h) => h === "start");
       const endIndex = headers.findIndex((h) => h === "end");
       const personIndex = headers.findIndex(
@@ -56,6 +61,7 @@ export default function App() {
       );
 
       const parsed: Row[] = rows.slice(1).map((r) => ({
+        DayOfWeek: r[dayOfWeekIndex]?.trim() || "",
         Day: r[dayIndex]?.trim() || "",
         Start: r[startIndex]?.trim() || "",
         End: r[endIndex]?.trim() || "",
@@ -69,7 +75,8 @@ export default function App() {
       const minutesNow = now.getHours() * 60 + now.getMinutes();
 
       const working = parsed.find((r) => {
-        if (r.Day.toLowerCase() !== today.toLowerCase()) return false;
+        const compareDay = (r.DayOfWeek || r.Day).toLowerCase();
+        if (compareDay !== today.toLowerCase()) return false;
 
         const start = parseTime(r.Start);
         const end = parseTime(r.End);
@@ -148,7 +155,8 @@ export default function App() {
       >
         <thead>
           <tr>
-            <th>Day</th>
+            <th>Day of Week</th>
+            <th>Date</th>
             <th>Start</th>
             <th>End</th>
             <th>Person</th>
@@ -157,6 +165,7 @@ export default function App() {
         <tbody>
           {filteredData.map((r, i) => (
             <tr key={i}>
+              <td>{r.DayOfWeek}</td>
               <td>{r.Day}</td>
               <td>{r.Start}</td>
               <td>{r.End}</td>
