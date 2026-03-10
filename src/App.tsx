@@ -118,7 +118,7 @@ export default function App() {
           style={{
             textAlign: "center",
             fontSize: "clamp(42px, 6vw, 82px)",
-            marginBottom: 12,
+            marginBottom: 40,
           }}
         >
           USARAD Schedule
