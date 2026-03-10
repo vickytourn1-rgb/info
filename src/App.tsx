@@ -38,8 +38,7 @@ export default function App() {
       const res = await fetch(SHEET_URL);
       const text = await res.text();
 
-      const rows = text.trim().split("
-").map((r) => r.split(","));
+      const rows = text.trim().split("\n").map((r) => r.split(","));
       const headers = rows[0].map((h) => h.trim().toLowerCase());
 
       const dowIndex = headers.findIndex(
@@ -108,7 +107,13 @@ export default function App() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "1600px", margin: "0 auto" }}>
-        <h1 style={{ textAlign: "center", fontSize: "clamp(42px, 6vw, 82px)", marginBottom: 12 }}>
+        <h1
+          style={{
+            textAlign: "center",
+            fontSize: "clamp(42px, 6vw, 82px)",
+            marginBottom: 12,
+          }}
+        >
           USARAD Schedule
         </h1>
         <p style={{ textAlign: "center", fontSize: 18, marginBottom: 20 }}>
@@ -221,4 +226,3 @@ export default function App() {
     </div>
   );
 }
-
