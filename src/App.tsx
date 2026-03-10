@@ -13,83 +13,66 @@ type Row = {
 
 export default function App() {
   const [data, setData] = useState<Row[]>([]);
-  const [current, setCurrent] = useState<Row | null>(null);
   const [doctorFilter, setDoctorFilter] = useState("All");
-  const [loading, setLoading] = useState(false);
+  const [current, setCurrent] = useState<Row | null>(null);
 
   const parseTime = (time: string) => {
     if (!time) return 0;
 
-    const clean = time.trim().toUpperCase();
-    const isPM = clean.includes("PM");
-    const isAM = clean.includes("AM");
+    const clean = time.toUpperCase().replace("AM", "").replace("PM", "").trim();
+    const parts = clean.split(":");
 
-    const timeOnly = clean.replace("AM", "").replace("PM", "").trim();
-    const parts = timeOnly.split(":");
-    let hours = Number(parts[0] || 0);
+    let hours = Number(parts[0]);
     const minutes = Number(parts[1] || 0);
 
-    if (isPM && hours !== 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
+    if (time.toUpperCase().includes("PM") && hours !== 12) hours += 12;
+    if (time.toUpperCase().includes("AM") && hours === 12) hours = 0;
 
     return hours * 60 + minutes;
   };
 
   const loadSchedule = async () => {
-    try {
-      setLoading(true);
+    const res = await fetch(SHEET_URL);
+    const text = await res.text();
 
-      const res = await fetch(SHEET_URL);
-      const text = await res.text();
+    const rows = text.trim().split("\n").map((r) => r.split(","));
 
-      const rows = text
-        .trim()
-        .split("
-")
-        .map((r) => r.split(","));
+    const headers = rows[0].map((h) => h.trim().toLowerCase());
 
-      const headers = rows[0].map((h) => h.trim().toLowerCase());
+    const dowIndex = headers.findIndex(
+      (h) => h === "day of week" || h === "weekday"
+    );
+    const dayIndex = headers.findIndex((h) => h === "day" || h === "date");
+    const startIndex = headers.findIndex((h) => h === "start");
+    const endIndex = headers.findIndex((h) => h === "end");
+    const personIndex = headers.findIndex(
+      (h) => h === "person" || h === "doctor"
+    );
 
-      const dayOfWeekIndex = headers.findIndex(
-        (h) => h === "day of week" || h === "dayofweek" || h === "weekday"
-      );
-      const dayIndex = headers.findIndex((h) => h === "day" || h === "date");
-      const startIndex = headers.findIndex((h) => h === "start");
-      const endIndex = headers.findIndex((h) => h === "end");
-      const personIndex = headers.findIndex(
-        (h) => h === "person" || h === "doctor" || h === "name"
-      );
+    const parsed: Row[] = rows.slice(1).map((r) => ({
+      DayOfWeek: r[dowIndex] || "",
+      Day: r[dayIndex] || "",
+      Start: r[startIndex] || "",
+      End: r[endIndex] || "",
+      Person: r[personIndex] || "",
+    }));
 
-      const parsed: Row[] = rows.slice(1).map((r) => ({
-        DayOfWeek: r[dayOfWeekIndex]?.trim() || "",
-        Day: r[dayIndex]?.trim() || "",
-        Start: r[startIndex]?.trim() || "",
-        End: r[endIndex]?.trim() || "",
-        Person: r[personIndex]?.trim() || "",
-      }));
+    setData(parsed);
 
-      setData(parsed);
+    const now = new Date();
+    const today = now.toLocaleDateString("en-US", { weekday: "long" });
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
 
-      const now = new Date();
-      const today = now.toLocaleDateString("en-US", { weekday: "long" });
-      const minutesNow = now.getHours() * 60 + now.getMinutes();
+    const working = parsed.find((r) => {
+      if (r.DayOfWeek.toLowerCase() !== today.toLowerCase()) return false;
 
-      const working = parsed.find((r) => {
-        const compareDay = (r.DayOfWeek || r.Day).toLowerCase();
-        if (compareDay !== today.toLowerCase()) return false;
+      const start = parseTime(r.Start);
+      const end = parseTime(r.End);
 
-        const start = parseTime(r.Start);
-        const end = parseTime(r.End);
+      return minutesNow >= start && minutesNow <= end;
+    });
 
-        return minutesNow >= start && minutesNow <= end;
-      });
-
-      setCurrent(working || null);
-    } catch (error) {
-      console.error("Error loading schedule:", error);
-    } finally {
-      setLoading(false);
-    }
+    setCurrent(working || null);
   };
 
   useEffect(() => {
@@ -103,20 +86,20 @@ export default function App() {
     ...Array.from(new Set(data.map((r) => r.Person).filter(Boolean))),
   ];
 
-  const filteredData =
+  const filtered =
     doctorFilter === "All"
       ? data
       : data.filter((r) => r.Person === doctorFilter);
 
   return (
-    <div style={{ padding: 40, fontFamily: "Arial, sans-serif" }}>
+    <div style={{ padding: 40, fontFamily: "Arial" }}>
       <h1>USARAD Schedule</h1>
-      <p>Auto-updates every minute</p>
+      <p>Auto updates every minute</p>
 
       {current && (
         <div
           style={{
-            padding: 16,
+            padding: 15,
             background: "#e8f4ff",
             borderRadius: 8,
             marginBottom: 20,
@@ -126,44 +109,37 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <label style={{ fontWeight: "bold" }}>Doctor Filter:</label>
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ marginRight: 10 }}>Doctor:</label>
         <select
           value={doctorFilter}
           onChange={(e) => setDoctorFilter(e.target.value)}
-          style={{ padding: 8, borderRadius: 6 }}
         >
-          {doctors.map((doctor) => (
-            <option key={doctor} value={doctor}>
-              {doctor}
-            </option>
+          {doctors.map((d) => (
+            <option key={d}>{d}</option>
           ))}
         </select>
 
         <button
           onClick={loadSchedule}
-          style={{ padding: "8px 14px", borderRadius: 6, cursor: "pointer" }}
+          style={{ marginLeft: 15, padding: "6px 12px" }}
         >
-          {loading ? "Refreshing..." : "Refresh"}
+          Refresh
         </button>
       </div>
 
-      <table
-        border={1}
-        cellPadding={10}
-        style={{ borderCollapse: "collapse", width: "100%" }}
-      >
+      <table border={1} cellPadding={8} style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
             <th>Day of Week</th>
             <th>Date</th>
             <th>Start</th>
             <th>End</th>
-            <th>Person</th>
+            <th>Doctor</th>
           </tr>
         </thead>
         <tbody>
-          {filteredData.map((r, i) => (
+          {filtered.map((r, i) => (
             <tr key={i}>
               <td>{r.DayOfWeek}</td>
               <td>{r.Day}</td>
@@ -177,4 +153,3 @@ export default function App() {
     </div>
   );
 }
-
